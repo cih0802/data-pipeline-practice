@@ -45,6 +45,12 @@ jobs:
         run: dbt deps --profiles-dir ci_profiles
         working-directory: ./dbt/public_data_mart
 
-      - name: Run dbt compile
-        run: dbt compile --profiles-dir ci_profiles
-        working-directory: ./dbt/public_data_mart
+      # - name: Run dbt compile
+      # dbt에서 snonwflake 접속 정보를 이용하므로 실제 컴파일에서 제외, parse만 진행하도록 변경
+      #   run: dbt compile --profiles-dir ci_profiles
+      #   working-directory: ./dbt/public_data_mart
+
+      - name: Run dbt parse
+        # compile 대신 parse를 사용하여 DB 접속 없이 테스트를 완료합니다.
+        run: dbt parse --profiles-dir ci_profiles
+        working-directory: ./dbt/public_data_mart        
