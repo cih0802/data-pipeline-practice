@@ -24,7 +24,7 @@ def send_slack_alert(context):
     if state == 'success':
         msg = f"✅ *[SUCCESS]* DAG: `{dag_id}` | Date: `{logical_date}` | Task: `{task_id}` 완료"
     else:
-        msg = f"🚨 *[FAILED]* DAG: `{dag_id}` | Task: `{task_id}`\n🔍 <{log_url}|에러 로그 확인하기>"
+        msg = f"<@U09DTEKRBFZ>🚨 *[FAILED]* DAG: `{dag_id}` | Task: `{task_id}`\n🔍 <{log_url}|에러 로그 확인하기>"
 
     payload = {"text": msg}
     requests.post(webhook_url, json=payload)
