@@ -29,8 +29,11 @@ clean-targets:         # directories to be removed by `dbt clean`
 # In this example config, we tell dbt to build all models in the example/
 # directory as views. These settings can be overridden in the individual model
 # files using the `{{ config(...) }}` macro.
-models:
-  public_data_mart:
+
+# 다음 내용은 지금은 안 써서 주석처리함. 학습 후 수정해보려고 함.
+# models:
+  # public_data_mart:
+  #  +materialized: table
     # Config indicated by + and applies to all files under models/example/
     # example:
     #  +materialized: view
