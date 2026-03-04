@@ -22,3 +22,6 @@ dbt-env/
 # AWS & OS
 .aws/
 .DS_Store
+
+# backup file
+.bak_*
