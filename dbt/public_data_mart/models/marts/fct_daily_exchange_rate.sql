@@ -22,7 +22,7 @@ cleaned_data as (
 )
 
 select
-    loaded_at
+    loaded_at,
     base_date,
     currency_code,
     currency_name,
