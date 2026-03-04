@@ -33,7 +33,7 @@ with DAG(
     # [1단계: E] API 호출 후 S3 적재
     extract_task = PythonOperator(
         task_id='E_extract_to_s3',
-        python_callable=fetch_and_upload_to_s3
+        python_callable=fetch_and_upload_to_s3,
     )
 
     # [2단계: L] Snowflake Bronze 적재
@@ -64,7 +64,7 @@ with DAG(
                 REGEXP_SUBSTR(METADATA$FILENAME, '([0-9]{8})'), -- 파일명에서 숫자 8자리 추출
               FROM @my_s3_stage
             )
-            PATTERN='.*exchange_rate_.*.json';
+            PATTERN='.*exchange_rate_{{ ds_nodash }}\.json';
         """
     )
 
