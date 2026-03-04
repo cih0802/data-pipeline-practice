@@ -1,0 +1,24 @@
+# Environments
+.env
+.venv/
+venv/
+__pycache__/
+
+
+# Airflow
+logs/
+airflow.cfg
+airflow.db
+airflow/.env
+docker-compose.yaml
+
+# dbt
+profiles.yml
+target/
+dbt_packages/
+logs/
+dbt-env/
+
+# AWS & OS
+.aws/
+.DS_Store

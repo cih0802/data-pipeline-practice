@@ -1,0 +1,43 @@
+name: dbt CI Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  dbt-compile-test:
+    runs-on: ubuntu-latest # GitHub이 무료로 제공하는 리눅스 서버 환경
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dbt-snowflake
+        run: pip install dbt-core dbt-snowflake
+
+      - name: Run dbt deps
+        run: dbt deps
+        working-directory: ./dbt/public_data_mart
+
+      - name: Run dbt compile (문법 검사)
+        # 실제 데이터베이스에 쿼리를 날리지 않고, SQL 문법이 정확한지만 테스트합니다.
+        run: dbt compile
+        working-directory: ./dbt/public_data_mart
+
+      - name: Run dbt deps
+        run: dbt deps --profiles-dir .
+        working-directory: ./dbt/public_data_mart
+
+      - name: Run dbt compile
+        # 옵션을 추가하여 현재 폴더(.)의 profiles.yml을 읽도록 지시합니다.
+        run: dbt compile --profiles-dir .
+        working-directory: ./dbt/public_data_mart

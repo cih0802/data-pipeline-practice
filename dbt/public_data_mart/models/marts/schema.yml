@@ -1,0 +1,22 @@
+version: 2
+
+models:
+  - name: fct_daily_exchange_rate
+    description: "일별 환율 데이터 마트"
+    columns:
+      - name: loaded_at
+        description: "적재 일자"
+        tests:
+          - not_null    
+      - name: base_date
+        description: "기준 일자"
+        tests:
+          - not_null
+      - name: currency_code
+        description: "통화 코드"
+        tests:
+          - not_null
+      - name: base_rate
+        description: "매매 기준율"
+        tests:
+          - not_null
