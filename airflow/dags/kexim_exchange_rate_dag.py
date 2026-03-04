@@ -3,24 +3,29 @@ from airflow.providers.standard.operators.python import PythonOperator
 from airflow.providers.standard.operators.bash import BashOperator
 from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator
 from datetime import datetime, timedelta
+import pendulum
 
 # 분리한 scripts 폴더에서 함수 불러오기
 from scripts.extract_kexim import fetch_and_upload_to_s3
+
+# 한국 시간대 설정
+local_tz = pendulum.timezone("Asia/Seoul")
 
 # 설정 정보
 DBT_PROJECT_DIR = "/opt/airflow/dbt/public_data_mart"
 SNOWFLAKE_CONN_ID = 'snowflake_default' # Airflow UI에 등록할 ID
 
 default_args = {
-    'owner': 'gemini',
+    'owner': 'InHwan Cho',
     'retries': 1,
     'retry_delay': timedelta(minutes=5)
 }
 
 with DAG(
     dag_id='kexim_exchange_rate_elt_pipeline',
-    start_date=datetime(2026, 3, 1),
-    schedule='@daily',
+    # start_date에 한국 시간대를 적용해야 schedule도 한국 시간 기준으로 작동합니다.
+    start_date=datetime(2026, 3, 1, tzinfo=local_tz),
+    schedule='0 12 * * *',  # 이제 한국 시간 낮 12시를 의미합니다.
     catchup=False,
     default_args=default_args
 ) as dag:
