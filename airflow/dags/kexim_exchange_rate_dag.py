@@ -74,7 +74,8 @@ with DAG(
             CREATE OR REPLACE TABLE raw_exchange_rate (
                 raw_data VARIANT,
                 -- snowflake에서 SYSDATE()는 항상 UTC이므로, 이를 Asia/Seoul로 변환하면 정확히 +9시간이 됩니다.
-                loaded_at TIMESTAMP_NTZ DEFAULT CONVERT_TIMEZONE('UTC','Asia/Seoul', SYSDATE())::TIMESTAMP_NTZ;
+                -- 업계 표준이 적재시간은 표현은 CURRENT_TIMEZONE쓰고 UTC 쓴대서 고민하다 그냥 TZ타입 UTC로 적용
+                loaded_at TIMESTAMP_TZ DEFAULT CONVERT_TIMEZONE('UTC', current_timestamp()),
                 search_date VARCHAR2(8)
             );
 

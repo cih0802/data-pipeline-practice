@@ -15,7 +15,7 @@ with staging as (
 
 cleaned_data as (
     select
-        date(loaded_at) as loaded_at,
+        CONVERT_TIMEZONE('Asia/Seoul', loaded_at) as loaded_at_kst,
         search_date as base_date,
         currency_code,
         currency_name,
@@ -28,7 +28,7 @@ cleaned_data as (
 )
 
 select
-    loaded_at,
+    loaded_at_kst,
     base_date,
     currency_code,
     currency_name,
@@ -37,5 +37,6 @@ select
     ttb,
     tts
 from cleaned_data
--- 하루에 여러 번 적재되었을 경우, 가장 마지막에 적재된(loaded_at desc) 1건만 남김
-qualify row_number() over(partition by base_date, currency_code order by loaded_at desc) = 1
+-- 하루에 여러 번 적재되었을 경우, 가장 마지막에 적재된(loaded_at_kst desc) 1건만 남김
+qualify row_number() over(partition by base_date, currency_code order by loaded_at_kst desc) = 1
+-- order by base_date, currency_code

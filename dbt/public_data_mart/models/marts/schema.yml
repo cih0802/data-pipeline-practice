@@ -4,8 +4,8 @@ models:
   - name: fct_daily_exchange_rate
     description: "일별 환율 데이터 마트"
     columns:
-      - name: loaded_at
-        description: "E 추출 일자"
+      - name: loaded_at_kst
+        description: "E 추출 일자 한국시간"
         tests:
           - not_null
       - name: base_date
