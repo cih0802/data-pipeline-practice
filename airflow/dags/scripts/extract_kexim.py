@@ -1,10 +1,16 @@
 import requests
 import boto3
 import json
-from airflow.models import Variable
+import urllib3  # [추가] InsecureRequestWarning 숨기기를 위한 모듈
+
+# [수정] Deprecation 경고 해결: airflow.models 대신 airflow.sdk 사용
+# (단, 사용 중인 Airflow 버전에 따라 에러가 발생하면 기존처럼 models를 사용하세요)
+from airflow.sdk import Variable 
+
+# [추가] verify=False 사용 시 발생하는 HTTPS 보안 경고 로그 숨기기
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 def fetch_and_upload_to_s3(**kwargs):
-    # Airflow UI의 Variables에서 값을 가져옴
     API_KEY = Variable.get("KEXIM_API_KEY") 
     BUCKET_NAME = Variable.get("S3_BUCKET_NAME")
     AWS_ACCESS_KEY = Variable.get("AWS_ACCESS_KEY")
@@ -17,18 +23,25 @@ def fetch_and_upload_to_s3(**kwargs):
     url = "https://oapi.koreaexim.go.kr/site/program/financial/exchangeJSON"
     params = {'authkey': API_KEY, 'searchdate': searchdate, 'data': 'AP01'}
 
-    response = requests.get(url, params=params, verify=False)
+    # [수정] timeout 추가: 서버 연결 최대 10초 대기, 데이터 수신 최대 30초 대기
+    response = requests.get(url, params=params, verify=False, timeout=(10, 30))
     response.encoding = 'utf-8'
     
-    if response.status_code == 200:
-        data = response.json()
-        if not data: return # 데이터 없으면 종료
+    # [추가] HTTP 상태 코드가 200 정상 응답이 아닐 경우 즉시 예외(Exception) 발생
+    # 이를 통해 Airflow가 단순 데이터 누락이 아닌 API 호출 실패로 정확히 인지하고 재시도(Retry)하게 됨
+    response.raise_for_status() 
 
-        s3_client = boto3.client('s3', aws_access_key_id=AWS_ACCESS_KEY, aws_secret_access_key=AWS_SECRET_KEY)
-        s3_key = f"raw_data/exchange_rate/{partition_path}/exchange_rate_{searchdate}.json"
+    data = response.json()
+    
+    if not data: 
+        print(f"No data found for {searchdate}")
+        return # 데이터 없으면 종료
 
-        s3_client.put_object(
-            Bucket=BUCKET_NAME,
-            Key=s3_key,
-            Body=json.dumps(data, ensure_ascii=False).encode('utf-8')
-        )
+    s3_client = boto3.client('s3', aws_access_key_id=AWS_ACCESS_KEY, aws_secret_access_key=AWS_SECRET_KEY)
+    s3_key = f"raw_data/exchange_rate/{partition_path}/exchange_rate_{searchdate}.json"
+
+    s3_client.put_object(
+        Bucket=BUCKET_NAME,
+        Key=s3_key,
+        Body=json.dumps(data, ensure_ascii=False).encode('utf-8')
+    )

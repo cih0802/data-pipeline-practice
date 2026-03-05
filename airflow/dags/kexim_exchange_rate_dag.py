@@ -5,7 +5,8 @@ from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator
 from datetime import datetime, timedelta
 import pendulum
 import requests
-from airflow.models import Variable
+# Deprecation 경고 대응 패키지 경로 변경. models → sdk
+from airflow.sdk import Variable
 
 # 분리한 scripts 폴더에서 함수 불러오기
 from scripts.extract_kexim import fetch_and_upload_to_s3
@@ -34,10 +35,14 @@ DBT_PROJECT_DIR = "/opt/airflow/dbt/public_data_mart"
 SNOWFLAKE_CONN_ID = 'snowflake_default'
 
 # [수정] 실패 시 기본적으로 알림 함수가 작동하도록 추가
+# api 서버 불안정으로 1회 실패하고 데이터 불러옴(20260305)
+# → 시도횟수를 3회로 늘리고 점차 시간을 늘림
 default_args = {
     'owner': 'InHwan Cho',
-    'retries': 1,
+    'retries': 3,
     'retry_delay': timedelta(minutes=5),
+    'retry_exponential_backoff': True, # 재시도 간격을 점점 늘림
+    'max_retry_delay': timedelta(minutes=30),
     'on_failure_callback': send_slack_alert 
 }
 
