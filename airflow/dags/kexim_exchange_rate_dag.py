@@ -71,9 +71,10 @@ with DAG(
 
             ALTER STAGE my_s3_stage REFRESH;
 
-            CREATE TABLE IF NOT EXISTS raw_exchange_rate (
+            CREATE OR REPLACE TABLE raw_exchange_rate (
                 raw_data VARIANT,
-                loaded_at TIMESTAMP_NTZ DEFAULT CONVERT_TIMEZONE('UTC', 'Asia/Seoul', SYSDATE())::TIMESTAMP_NTZ,
+                -- snowflake에서 SYSDATE()는 항상 UTC이므로, 이를 Asia/Seoul로 변환하면 정확히 +9시간이 됩니다.
+                loaded_at TIMESTAMP_NTZ DEFAULT CONVERT_TIMEZONE('UTC','Asia/Seoul', SYSDATE())::TIMESTAMP_NTZ;
                 search_date VARCHAR2(8)
             );
 
