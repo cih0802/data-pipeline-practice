@@ -73,7 +73,7 @@ with DAG(
 
             CREATE TABLE IF NOT EXISTS raw_exchange_rate (
                 raw_data VARIANT,
-                loaded_at TIMESTAMP_NTZ DEFAULT CONVERT_TIMEZONE('UTC', 'Asia/Seoul', CURRENT_TIMESTAMP())::TIMESTAMP_NTZ,
+                loaded_at TIMESTAMP_NTZ DEFAULT CONVERT_TIMEZONE('UTC', 'Asia/Seoul', SYSDATE())::TIMESTAMP_NTZ,
                 search_date VARCHAR2(8)
             );
 
