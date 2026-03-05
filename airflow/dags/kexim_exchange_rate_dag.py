@@ -49,7 +49,7 @@ default_args = {
 with DAG(
     dag_id='kexim_exchange_rate_elt_pipeline',
     start_date=datetime(2026, 3, 1, tzinfo=local_tz),
-    schedule='0 12 * * *',
+    schedule='45 11 * * *',
     catchup=False,
     default_args=default_args
 ) as dag:

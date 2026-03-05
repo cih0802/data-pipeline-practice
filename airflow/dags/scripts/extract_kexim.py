@@ -8,6 +8,11 @@ import urllib3  # [추가] InsecureRequestWarning 숨기기를 위한 모듈
 from airflow.sdk import Variable 
 
 # [추가] verify=False 사용 시 발생하는 HTTPS 보안 경고 로그 숨기기
+# 단, 권장사항(best practice)은 해당 기관의 인증서 직접 등록 하는 것
+# 여기선 실습을 위해 verify=false 사용
+# 브라우저를 통해 한국수출입은행 API 서버의 인증서(예: .pem 파일)를 다운로드한 뒤, Airflow 서버의 특정 경로에 저장하고 코드에 반영합니다.
+# verify 인자에 False 대신 다운받은 인증서 경로를 지정합니다.
+# response = requests.get(url, params=params, verify='/opt/airflow/certs/kexim_cert.pem', timeout=(10, 30))
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 def fetch_and_upload_to_s3(**kwargs):
