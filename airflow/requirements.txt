@@ -1,2 +1,6 @@
 apache-airflow-providers-snowflake
 apache-airflow-providers-common-sql
+boto3
+requests
+yfinance
+pandas

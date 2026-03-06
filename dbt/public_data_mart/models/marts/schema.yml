@@ -20,3 +20,16 @@ models:
         description: "매매 기준율"
         tests:
           - not_null
+  - name: fct_daily_investment_metrics
+    description: "미국 ETF 및 환율 결합 일별 투자 지표 데이터 마트"
+    columns:
+      - name: trade_date
+        description: "거래 일자 (YYYY-MM-DD)"
+        tests:
+          - not_null
+      - name: ticker
+        description: "종목 코드 (SPY, QQQ)"
+        tests:
+          - not_null
+      - name: krw_daily_return_pct
+        description: "원화 환산 일일 수익률(%)"

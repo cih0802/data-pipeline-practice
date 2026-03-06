@@ -7,10 +7,10 @@ __pycache__/
 
 # Airflow
 logs/
+.bak_airflow.cfg
 airflow.cfg
 airflow.db
 airflow/.env
-docker-compose.yaml
 
 # dbt
 profiles.yml

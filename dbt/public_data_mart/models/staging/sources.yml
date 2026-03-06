@@ -7,3 +7,6 @@ sources:
     tables:
       - name: raw_exchange_rate
         description: "수출입은행 환율 API JSON 원본 적재 테이블"
+      # 아래 내용 추가
+      - name: raw_etf
+        description: "Yahoo Finance 미국 ETF(SPY, QQQ) API JSON 배열 원본 적재 테이블"

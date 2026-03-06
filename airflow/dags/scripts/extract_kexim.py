@@ -3,9 +3,8 @@ import boto3
 import json
 import urllib3  # [추가] InsecureRequestWarning 숨기기를 위한 모듈
 
-# [수정] Deprecation 경고 해결: airflow.models 대신 airflow.sdk 사용
-# (단, 사용 중인 Airflow 버전에 따라 에러가 발생하면 기존처럼 models를 사용하세요)
-from airflow.sdk import Variable 
+# 2.x 버전 경로로 수정됨
+from airflow.models import Variable 
 
 # [추가] verify=False 사용 시 발생하는 HTTPS 보안 경고 로그 숨기기
 # 단, 권장사항(best practice)은 해당 기관의 인증서 직접 등록 하는 것
