@@ -1,0 +1,34 @@
+name: CD - Local WSL Deploy
+
+on:
+  push:
+    branches: [ main ] # main 브랜치에 코드가 들어올 때(Merge 포함) 실행
+
+jobs:
+  deploy-to-wsl:
+    runs-on: self-hosted # 우리가 설치한 그 Runner!
+    steps:
+      - name: Git Pull Latest
+        run: |
+          cd ~/data-pipeline-practice
+          # 로컬에 남아있을지 모르는 지저분한 변경사항 무시하고 강제 동기화
+          git fetch origin
+          git reset --hard origin/main
+
+      - name: Sync Airflow .env
+        # GitHub Secrets의 값을 로컬 .env에 주입
+        run: |
+          cat <<EOF > ~/data-pipeline-practice/airflow/.env
+          AIRFLOW_UID=1000
+          AIRFLOW_VAR_KEXIM_API_KEY=${{ secrets.KEXIM_API_KEY }}
+          AIRFLOW_VAR_S3_BUCKET_NAME=${{ secrets.S3_BUCKET_NAME }}
+          AIRFLOW_VAR_AWS_ACCESS_KEY=${{ secrets.AWS_ACCESS_KEY }}
+          AIRFLOW_VAR_AWS_SECRET_KEY=${{ secrets.AWS_SECRET_KEY }}
+          AIRFLOW_VAR_SLACK_WEBHOOK_URL=${{ secrets.SLACK_WEBHOOK_URL }}
+          AIRFLOW_CONN_SNOWFLAKE_DEFAULT='${{ secrets.SF_CONN_STRING }}'
+          EOF
+
+      - name: Restart Airflow Scheduler
+        run: |
+          cd ~/data-pipeline-practice/airflow
+          docker compose restart airflow-scheduler
