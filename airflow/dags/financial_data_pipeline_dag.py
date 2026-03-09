@@ -35,6 +35,7 @@ SNOWFLAKE_CONN_ID = 'snowflake_default'
 
 default_args = {
     'owner': 'InHwan Cho',
+    'depends_on_past': True,          # 순차적 성공을 보장하기 위해 설정
     'retries': 3,
     'retry_delay': timedelta(minutes=5),
     'retry_exponential_backoff': True,
@@ -46,11 +47,12 @@ with DAG(
     dag_id='financial_data_elt_pipeline',
     start_date=datetime(2026, 3, 1, tzinfo=local_tz),
     schedule='45 11 * * *',
-    catchup=False,
-    default_args=default_args
+    catchup=False,       # 밀린 데이터 가져오는 catchup 종료 후 False로 변경
+    default_args=default_args,
+    max_active_runs=1   # 순차적, api부하 방지를 위해 1개씩 실행
 ) as dag:
 
-    # 1. 병렬 추출 태스크 (환율 & ETF)
+    # 1. 병렬 추출 태스크
     extract_kexim_task = PythonOperator(
         task_id='E_extract_kexim_to_s3',
         python_callable=fetch_and_upload_to_s3
@@ -70,9 +72,6 @@ with DAG(
             USE WAREHOUSE COMPUTE_WH;
             USE SCHEMA SANDBOX.BRONZE;
 
-            ALTER STAGE my_s3_stage REFRESH;
-
-            -- 증분 적재를 위해 기존 데이터 보존 (IF NOT EXISTS)
             CREATE TABLE IF NOT EXISTS raw_exchange_rate (
                 raw_data VARIANT,
                 loaded_at TIMESTAMP_TZ DEFAULT CONVERT_TIMEZONE('UTC', current_timestamp()),
@@ -81,14 +80,15 @@ with DAG(
 
             COPY INTO raw_exchange_rate (raw_data, search_date)
             FROM (
-              SELECT $1, REGEXP_SUBSTR(METADATA$FILENAME, '([0-9]{8})') 
-              FROM @my_s3_stage
-            )
-            PATTERN='.*/exchange_rate/.*exchange_rate_{{ ds_nodash }}\.json';
+              SELECT $1, '{{ ds_nodash }}'
+              FROM @my_s3_stage/exchange_rate/year={{ logical_date.strftime('%Y') }}/month={{ logical_date.strftime('%m') }}/day={{ logical_date.strftime('%d') }}/
+            ) -- 경로 직접 지정 최적화
+            FILE_FORMAT = (TYPE = JSON)
+            ON_ERROR = 'CONTINUE'; -- 주말 등 파일 부재 시 에러 방지
         """
     )
 
-    # 3. Snowflake 적재 태스크 (ETF)
+    # 3. Snowflake 적재 태스크 (ETF) - 경로 직접 지정 최적화
     load_etf_to_bronze = SQLExecuteQueryOperator(
         task_id='L_load_etf_to_snowflake',
         conn_id=SNOWFLAKE_CONN_ID,
@@ -96,8 +96,6 @@ with DAG(
             USE ROLE SYSADMIN;
             USE WAREHOUSE COMPUTE_WH;
             USE SCHEMA SANDBOX.BRONZE;
-
-            ALTER STAGE my_s3_stage REFRESH;
 
             CREATE TABLE IF NOT EXISTS raw_etf (
                 raw_data VARIANT,
@@ -107,10 +105,11 @@ with DAG(
 
             COPY INTO raw_etf (raw_data, search_date)
             FROM (
-              SELECT $1, REGEXP_SUBSTR(METADATA$FILENAME, '([0-9]{8})') 
-              FROM @my_s3_stage
+              SELECT $1, '{{ ds_nodash }}'
+              FROM @my_s3_stage/etf/year={{ logical_date.strftime('%Y') }}/month={{ logical_date.strftime('%m') }}/day={{ logical_date.strftime('%d') }}/
             )
-            PATTERN='.*/etf/.*etf_{{ ds_nodash }}\.json';
+            FILE_FORMAT = (TYPE = JSON)
+            ON_ERROR = 'CONTINUE';
         """
     )
 
@@ -129,5 +128,4 @@ with DAG(
     # 파이프라인 의존성 설정 (병렬 추출 -> 병렬 적재 -> dbt)
     extract_kexim_task >> load_kexim_to_bronze
     extract_etf_task >> load_etf_to_bronze
-    
     [load_kexim_to_bronze, load_etf_to_bronze] >> dbt_run >> dbt_test

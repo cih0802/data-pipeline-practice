@@ -43,7 +43,11 @@ def fetch_etf_and_upload_to_s3(**kwargs):
             res_json = response.json()
 
             # 야후 JSON 구조에서 필요한 데이터(Open, High, Low, Close, Volume) 추출
-            result = res_json['chart']['result'][0]
+            # 데이터가 있는지 먼저 확인 (Safety Check)
+            result = res_json.get('chart', {}).get('result', [None])[0]
+            if result is None or 'timestamp' not in result:
+                print(f"No data available for {ticker} at this time.")
+                continue # 다음 티커로 넘어감
             indicators = result['indicators']['quote'][0]
             timestamps = result['timestamp']
 
@@ -62,12 +66,11 @@ def fetch_etf_and_upload_to_s3(**kwargs):
         except Exception as e:
             print(f"Failed to fetch {ticker}: {str(e)}")
 
-    # 데이터 검증 (수출입은행 방식과 동일)
+    # 데이터 검증
     if not data_list:
-        if execution_date.weekday() >= 5:
-            print(f"Weekend detected for {searchdate}. Skipping.")
-            return
-        raise ValueError(f"No ETF data fetched for {searchdate} via URL API.")
+        # 에러를 던지는 대신, 로그만 남기고 정상 종료(return) 시킵니다.
+        print(f"No ETF data fetched for {searchdate}. Task will finish gracefully.")
+        return
 
     # S3 적재
     s3_client = boto3.client('s3', aws_access_key_id=AWS_ACCESS_KEY, aws_secret_access_key=AWS_SECRET_KEY)
