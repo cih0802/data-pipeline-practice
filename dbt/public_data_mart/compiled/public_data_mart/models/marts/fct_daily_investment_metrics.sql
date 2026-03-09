@@ -1,7 +1,4 @@
-{{ config(
-    materialized='incremental',
-    unique_key=['trade_date', 'ticker']
-) }}
+
 
 /* --------------------------------------------------------------------------
    1. etf_data (기준 데이터 추출)
@@ -11,11 +8,11 @@
      (한국의 최장 명절 연휴 등으로 인한 데이터 단절 방어 목적)
 -------------------------------------------------------------------------- */
 with etf_data as (
-    select * from {{ ref('stg_etf') }}
+    select * from sandbox.public_data_mart_dev.stg_etf
     
-    {% if is_incremental() %}
-    where trade_date >= dateadd(day, -14, (select coalesce(max(trade_date), '1900-01-01') from {{ this }}))
-    {% endif %}
+    
+    where trade_date >= dateadd(day, -14, (select coalesce(max(trade_date), '1900-01-01') from sandbox.public_data_mart_dev.fct_daily_investment_metrics))
+    
 ),
 
 /* --------------------------------------------------------------------------
@@ -28,12 +25,12 @@ exchange_rate_data as (
     select
         to_date(base_date, 'YYYYMMDD') as ex_date,
         base_rate as usd_krw_rate
-    from {{ ref('fct_daily_exchange_rate') }}
+    from sandbox.public_data_mart_dev.fct_daily_exchange_rate
     where currency_code = 'USD'
     
-    {% if is_incremental() %}
-    and to_date(base_date, 'YYYYMMDD') >= dateadd(day, -14, (select coalesce(max(trade_date), '1900-01-01') from {{ this }}))
-    {% endif %}
+    
+    and to_date(base_date, 'YYYYMMDD') >= dateadd(day, -14, (select coalesce(max(trade_date), '1900-01-01') from sandbox.public_data_mart_dev.fct_daily_investment_metrics))
+    
 ),
 
 /* --------------------------------------------------------------------------
@@ -99,8 +96,7 @@ select
 from metrics_calculated
 where trade_date is not null 
 
-{% if is_incremental() %}
+
 -- [최종 필터링] 윈도우 함수 연산을 위해 14일치를 가져왔지만, 
 -- 실제 테이블에 Insert/Update 하는 데이터는 기존에 없는 최신 날짜의 데이터만 반영합니다.
-and trade_date > (select coalesce(max(trade_date), '1900-01-01') from {{ this }})
-{% endif %}
+and trade_date > (select coalesce(max(trade_date), '1900-01-01') from sandbox.public_data_mart_dev.fct_daily_investment_metrics)
