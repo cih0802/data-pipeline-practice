@@ -5,52 +5,50 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  # 워크플로우를 수동으로도 실행해볼 수 있게 버튼 추가
+  workflow_dispatch: 
 
 jobs:
-  dbt-compile-test:
+  dbt-validation:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
       - name: Install dependencies
-        run: pip install dbt-core dbt-snowflake
+        run: pip install dbt-snowflake
 
-      - name: Create Dummy Profile
+      - name: Create CI Profile
+        # 'Dummy'가 아니라 실제 'Secrets'를 사용하여 Snowflake에 안전하게 연결합니다.
         run: |
-          mkdir -p ci_profiles
-          cat <<EOF > ci_profiles/profiles.yml
+          mkdir -p ~/.dbt
+          cat <<EOF > ~/.dbt/profiles.yml
           public_data_mart:
-            target: dev
+            target: ci
             outputs:
-              dev:
+              ci:
                 type: snowflake
-                account: ci_test
-                user: ci_test
-                password: ci_test
-                role: ci_test
-                database: ci_test
-                warehouse: ci_test
-                schema: ci_test
+                account: ${{ secrets.SF_ACCOUNT }}
+                user: ${{ secrets.SF_USER }}
+                password: ${{ secrets.SF_PASSWORD }}
+                role: ${{ secrets.SF_ROLE }}
+                database: ${{ secrets.SF_DATABASE }}
+                warehouse: ${{ secrets.SF_WH }}
+                schema: CI_TEST_SCHEMA
+                threads: 4
           EOF
-        working-directory: ./dbt/public_data_mart
 
       - name: Run dbt deps
-        run: dbt deps --profiles-dir ci_profiles
         working-directory: ./dbt/public_data_mart
+        run: dbt deps
 
-      # - name: Run dbt compile
-      # dbt에서 snonwflake 접속 정보를 이용하므로 실제 컴파일에서 제외, parse만 진행하도록 변경
-      #   run: dbt compile --profiles-dir ci_profiles
-      #   working-directory: ./dbt/public_data_mart
-
-      - name: Run dbt parse
-        # compile 대신 parse를 사용하여 DB 접속 없이 테스트를 완료합니다.
-        run: dbt parse --profiles-dir ci_profiles
-        working-directory: ./dbt/public_data_mart        
+      - name: Run dbt compile
+        # 이제 실제 Snowflake 문법 검증까지 수행합니다.
+        working-directory: ./dbt/public_data_mart
+        run: dbt compile --target ci
