@@ -39,3 +39,5 @@ select
     tts
 from cleaned_data
 qualify row_number() over(partition by base_date, currency_code order by loaded_at_kst desc) = 1
+
+--git ci/cd test
