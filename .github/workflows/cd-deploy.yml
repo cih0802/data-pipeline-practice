@@ -3,6 +3,9 @@ name: CD - Local WSL Deploy
 on:
   push:
     branches: [ main ] # main 브랜치에 코드가 들어올 때(Merge 포함) 실행
+    # 🎯 API 폴더만 변경되었을 때는 이 전체 재시작 파이프라인이 돌지 않도록 무시!
+    paths-ignore:
+      - 'api-server/**'
 
 jobs:
   deploy-to-wsl:

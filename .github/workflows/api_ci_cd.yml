@@ -34,7 +34,12 @@ jobs:
       - name: 🚀 Deploy API Server to Docker (CD)
         if: success() # 이전 테스트 단계가 완벽히 통과(Passed)했을 때만 실행
         run: |
-          cd airflow
+          # 🎯 임시 작업 폴더가 아니라 실제 호스트 서버의 운영 경로로 이동!
+          cd ~/data-pipeline-practice/airflow
+          
+          # 전체 코드를 최신화 (api_ci_cd는 호스트 코드 업데이트 로직이 없었으므로 추가)
+          git fetch origin
+          git reset --hard origin/main
           
           # API 서버 컨테이너만 리빌드 및 무중단 재시작 적용
           # serving-db나 airflow 컨테이너에는 영향을 주지 않음
