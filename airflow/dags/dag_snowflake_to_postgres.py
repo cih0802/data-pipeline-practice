@@ -25,7 +25,7 @@ def transfer_snowflake_to_postgres():
     """
     df = sn_hook.get_pandas_df(sql)
     
-if df.empty:
+    if df.empty:
         print("⚠️ Snowflake에서 가져올 최신 데이터가 없습니다.")
         return
         
