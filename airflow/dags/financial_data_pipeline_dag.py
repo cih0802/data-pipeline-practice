@@ -2,9 +2,11 @@ from airflow import DAG
 # 2.x 버전 경로로 수정됨
 from airflow.operators.python import PythonOperator
 from airflow.operators.bash import BashOperator
-from airflow.operators.trigger_dagrun import TriggerDagRunOperator
+# from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator
 from datetime import datetime, timedelta
+# 🎯 Dag간 연동을 위해 Dataset 임포트 추가
+from airflow.datasets import Dataset
 import pendulum
 import requests
 # 2.x 버전 경로로 수정됨
@@ -43,6 +45,10 @@ default_args = {
     'max_retry_delay': timedelta(minutes=30),
     'on_failure_callback': send_slack_alert 
 }
+
+# 🎯 감지할 대상 데이터셋 정의 (이름표 역할)
+# URI 형식은 자유롭지만 보통 "시스템://데이터베이스/스키마/테이블" 형태를 사용합니다.
+fct_metrics_dataset = Dataset("snowflake://SANDBOX/PUBLIC_DATA_MART_DEV/FCT_DAILY_INVESTMENT_METRICS")
 
 with DAG(
     dag_id='financial_data_elt_pipeline',
@@ -123,19 +129,23 @@ with DAG(
     dbt_test = BashOperator(
         task_id='T_dbt_test',
         bash_command=f"cd {DBT_PROJECT_DIR} && dbt test --profiles-dir {DBT_PROJECT_DIR}",
-        on_success_callback=send_slack_alert
+        on_success_callback=send_slack_alert,
+        # 🎯 핵심: 테스트까지 통과하면 "이 데이터셋이 갱신되었음"을 Airflow에 알림 (Producer)
+        outlets=[fct_metrics_dataset] 
     )
 
-    # 1번 DAG의 맨 마지막에 이 태스크를 추가합니다.
-    trigger_serving_dag = TriggerDagRunOperator(
-        task_id='trigger_sync_to_postgres',
-        trigger_dag_id='sync_snowflake_to_postgres', # 2번 DAG의 이름
-        wait_for_completion=False
-    )
-    # 1번 DAG 흐름: 데이터 수집 -> 적재 -> dbt 마트 생성 -> trigger_serving_dag
+    # # 1번 DAG의 맨 마지막에 이 태스크를 추가합니다.
+    # # 트리거 태스크 주석 처리 (Airflow Datasets 안 사용)
+    # trigger_serving_dag = TriggerDagRunOperator(
+    #     task_id='trigger_sync_to_postgres',
+    #     trigger_dag_id='sync_snowflake_to_postgres', # 2번 DAG의 이름
+    #     wait_for_completion=False
+    # )
+    # # 1번 DAG 흐름: 데이터 수집 -> 적재 -> dbt 마트 생성 -> trigger_serving_dag
 
     # 파이프라인 의존성 설정 (병렬 추출 -> 병렬 적재 -> dbt)
     extract_kexim_task >> load_kexim_to_bronze
     extract_etf_task >> load_etf_to_bronze
-    [load_kexim_to_bronze, load_etf_to_bronze] >> dbt_run >> dbt_test >> trigger_serving_dag
+    [load_kexim_to_bronze, load_etf_to_bronze] >> dbt_run >> dbt_test 
+    # >> trigger_serving_dag
 

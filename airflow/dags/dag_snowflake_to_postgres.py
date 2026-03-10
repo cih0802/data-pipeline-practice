@@ -5,6 +5,11 @@ from airflow.providers.postgres.hooks.postgres import PostgresHook
 from datetime import datetime
 import pandas as pd
 from sqlalchemy import create_engine, text
+# 🎯 2번 DAG에도 동일하게 Dataset 임포트 추가
+from airflow.datasets import Dataset
+
+# 🎯 1번 DAG와 완전히 똑같은 이름표(URI)를 선언합니다.
+fct_metrics_dataset = Dataset("snowflake://SANDBOX/PUBLIC_DATA_MART_DEV/FCT_DAILY_INVESTMENT_METRICS")
 
 # 접속 정보 ID 정의 (Airflow UI에 등록된 ID)
 SNOWFLAKE_CONN_ID = 'snowflake_default'
@@ -58,7 +63,8 @@ def transfer_snowflake_to_postgres():
 with DAG(
     dag_id='sync_snowflake_to_postgres',
     start_date=datetime(2024, 1, 1),
-    schedule_interval=None,
+    # 🎯 핵심: 시간이나 수동 실행(None) 대신, 데이터셋을 스케줄러로 지정 (Consumer)
+    schedule=[fct_metrics_dataset],
     catchup=False,
     tags=['serving', 'etl'] # Airflow UI에서 필터링하기 쉽도록 태그 부여
 ) as dag:
