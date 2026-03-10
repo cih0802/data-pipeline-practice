@@ -2,6 +2,7 @@ from airflow import DAG
 # 2.x 버전 경로로 수정됨
 from airflow.operators.python import PythonOperator
 from airflow.operators.bash import BashOperator
+from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator
 from datetime import datetime, timedelta
 import pendulum
@@ -125,7 +126,16 @@ with DAG(
         on_success_callback=send_slack_alert
     )
 
+    # 1번 DAG의 맨 마지막에 이 태스크를 추가합니다.
+    trigger_serving_dag = TriggerDagRunOperator(
+        task_id='trigger_sync_to_postgres',
+        trigger_dag_id='sync_snowflake_to_postgres', # 2번 DAG의 이름
+        wait_for_completion=False
+    )
+    # 1번 DAG 흐름: 데이터 수집 -> 적재 -> dbt 마트 생성 -> trigger_serving_dag
+
     # 파이프라인 의존성 설정 (병렬 추출 -> 병렬 적재 -> dbt)
     extract_kexim_task >> load_kexim_to_bronze
     extract_etf_task >> load_etf_to_bronze
-    [load_kexim_to_bronze, load_etf_to_bronze] >> dbt_run >> dbt_test
+    [load_kexim_to_bronze, load_etf_to_bronze] >> dbt_run >> dbt_test >> trigger_serving_dag
+
