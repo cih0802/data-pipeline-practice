@@ -18,11 +18,15 @@ POSTGRES_CONN_ID = 'postgres_serving'
 def transfer_snowflake_to_postgres():
     # 1. Snowflake에서 데이터 읽기
     sn_hook = SnowflakeHook(snowflake_conn_id=SNOWFLAKE_CONN_ID)
-    sql = "SELECT * FROM SANDBOX.PUBLIC_DATA_MART_DEV.FCT_DAILY_INVESTMENT_METRICS"
+    # 💡 데이터 추출 최적화: 전체 데이터를 가져오지 않고 최근 7일 치 데이터만 가져오도록 쿼리 수정 (진정한 증분 적재)
+    sql = """
+        SELECT * FROM SANDBOX.PUBLIC_DATA_MART_DEV.FCT_DAILY_INVESTMENT_METRICS
+        WHERE "TRADE_DATE" >= CURRENT_DATE() - 7
+    """
     df = sn_hook.get_pandas_df(sql)
     
-    if df.empty:
-        print("⚠️ Snowflake에서 가져올 데이터가 없습니다.")
+if df.empty:
+        print("⚠️ Snowflake에서 가져올 최신 데이터가 없습니다.")
         return
         
     print(f"✅ Snowflake 데이터 추출 완료 ({len(df)} rows)")
@@ -44,9 +48,25 @@ def transfer_snowflake_to_postgres():
 
     # 3. 데이터 적재
     # 🎯 최적화 2: Engine의 Context Manager 사용 및 Batch Insert 적용
+    # 4. 무중단 증분 적재 (Staging Table 패턴 적용)
     with engine.begin() as connection:
+        # 1️⃣ 메인 테이블이 없을 경우를 대비해 최초 1회 생성 (스키마 방어)
+        # 컬럼명과 타입은 실제 DataFrame에 맞게 자동 생성되도록 유도하거나 아래처럼 명시적으로 생성 가능합니다.
+        connection.execute(text("""
+            CREATE TABLE IF NOT EXISTS daily_investment_metrics (
+                "TRADE_DATE" DATE,
+                "TICKER" VARCHAR,
+                "USD_CLOSE_PRICE" FLOAT,
+                "USD_KRW_RATE" FLOAT,
+                "KRW_CLOSE_PRICE" FLOAT,
+                "USD_DAILY_RETURN_PCT" FLOAT,
+                "KRW_DAILY_RETURN_PCT" FLOAT
+            );
+        """))
+
+        # 2️⃣ 임시 테이블(stg_)에 최신 데이터 적재 (API가 바라보지 않으므로 replace 사용 가능)
         df.to_sql(
-            name='daily_investment_metrics',
+            name='stg_daily_investment_metrics',
             con=connection,
             if_exists='replace',
             index=False,
@@ -58,8 +78,25 @@ def transfer_snowflake_to_postgres():
         # (선택) DB 레벨에서 테이블 권한 부여나 인덱스 생성이 필요하다면 이곳에 추가
         # connection.execute(text("CREATE INDEX idx_ticker ON daily_investment_metrics (\"TICKER\");"))
 
-    print(f"✅ PostgreSQL({POSTGRES_CONN_ID}) 적재 완료! (공백 제거 및 Batch Insert 적용)")
+        # 3️⃣ 기존 메인 테이블에서 임시 테이블과 겹치는 데이터(TRADE_DATE, TICKER 기준) 삭제
+        connection.execute(text("""
+            DELETE FROM daily_investment_metrics
+            WHERE ("TRADE_DATE", "TICKER") IN (
+                SELECT "TRADE_DATE", "TICKER" FROM stg_daily_investment_metrics
+            );
+        """))
 
+        # 4️⃣ 임시 테이블의 최신 데이터를 메인 테이블로 삽입 (UPSERT 효과)
+        connection.execute(text("""
+            INSERT INTO daily_investment_metrics
+            SELECT * FROM stg_daily_investment_metrics;
+        """))
+
+        # 5️⃣ 임시 테이블 삭제 (용량 정리)
+        connection.execute(text("DROP TABLE stg_daily_investment_metrics;"))
+
+    print(f"✅ PostgreSQL({POSTGRES_CONN_ID}) 무중단 증분 적재(UPSERT) 완료!")
+    
 with DAG(
     dag_id='sync_snowflake_to_postgres',
     start_date=datetime(2024, 1, 1),
