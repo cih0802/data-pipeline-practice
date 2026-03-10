@@ -14,23 +14,7 @@ from airflow.models import Variable
 
 from scripts.extract_kexim import fetch_and_upload_to_s3
 from scripts.extract_etf import fetch_etf_and_upload_to_s3
-
-def send_slack_alert(context):
-    webhook_url = Variable.get("SLACK_WEBHOOK_URL")
-    ti = context.get('task_instance')
-    dag_id = ti.dag_id
-    task_id = ti.task_id
-    state = ti.state
-    logical_date = context.get('logical_date').strftime('%Y-%m-%d')
-    log_url = ti.log_url
-
-    if state == 'success':
-        msg = f"✅ *[SUCCESS]* DAG: `{dag_id}` | Date: `{logical_date}` | Task: `{task_id}` 완료"
-    else:
-        msg = f"<@U09DTEKRBFZ>🚨 *[FAILED]* DAG: `{dag_id}` | Task: `{task_id}`\n🔍 <{log_url}|에러 로그 확인하기>"
-
-    payload = {"text": msg}
-    requests.post(webhook_url, json=payload)
+from scripts.slack_alerts import send_slack_alert
 
 local_tz = pendulum.timezone("Asia/Seoul")
 DBT_PROJECT_DIR = "/opt/airflow/dbt/public_data_mart"

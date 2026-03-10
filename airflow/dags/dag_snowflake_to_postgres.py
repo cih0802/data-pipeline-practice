@@ -2,18 +2,30 @@ from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.providers.snowflake.hooks.snowflake import SnowflakeHook
 from airflow.providers.postgres.hooks.postgres import PostgresHook
-from datetime import datetime
+from datetime import datetime, timedelta
 import pandas as pd
 from sqlalchemy import create_engine, text
 # 🎯 2번 DAG에도 동일하게 Dataset 임포트 추가
 from airflow.datasets import Dataset
 
+from scripts.slack_alerts import send_slack_alert
+    
 # 🎯 1번 DAG와 완전히 똑같은 이름표(URI)를 선언합니다.
 fct_metrics_dataset = Dataset("snowflake://SANDBOX/PUBLIC_DATA_MART_DEV/FCT_DAILY_INVESTMENT_METRICS")
 
 # 접속 정보 ID 정의 (Airflow UI에 등록된 ID)
 SNOWFLAKE_CONN_ID = 'snowflake_default'
 POSTGRES_CONN_ID = 'postgres_serving'
+
+default_args = {
+    'owner': 'InHwan Cho',
+    'depends_on_past': True,          # 순차적 성공을 보장하기 위해 설정
+    'retries': 3,
+    'retry_delay': timedelta(minutes=5),
+    'retry_exponential_backoff': True,
+    'max_retry_delay': timedelta(minutes=30),
+    'on_failure_callback': send_slack_alert 
+}
 
 def transfer_snowflake_to_postgres():
     # 1. Snowflake에서 데이터 읽기
@@ -97,12 +109,14 @@ def transfer_snowflake_to_postgres():
 
     print(f"✅ PostgreSQL({POSTGRES_CONN_ID}) 무중단 증분 적재(UPSERT) 완료!")
     
+    
 with DAG(
     dag_id='sync_snowflake_to_postgres',
     start_date=datetime(2024, 1, 1),
     # 🎯 핵심: 시간이나 수동 실행(None) 대신, 데이터셋을 스케줄러로 지정 (Consumer)
     schedule=[fct_metrics_dataset],
     catchup=False,
+    default_args=default_args, # 🎯 이 줄을 반드시 추가해야 설정이 반영됩니다!
     tags=['serving', 'etl'] # Airflow UI에서 필터링하기 쉽도록 태그 부여
 ) as dag:
 
