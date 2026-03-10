@@ -186,5 +186,43 @@ services:
     depends_on:
       <<: *airflow-common-depends-on
 
+  serving-db:
+    image: postgres:15-alpine
+    container_name: serving-db
+    environment:
+      - POSTGRES_USER=serving_user
+      - POSTGRES_PASSWORD=serving_password
+      - POSTGRES_DB=etf_service
+    ports:
+      - "5433:5432" # 로컬 5432는 Airflow DB가 쓰고 있을 확률이 높으므로 5433으로 매핑
+    volumes:
+      - serving_db_data:/var/lib/postgresql/data
+    restart: always
+    # 🎯 추가 1: DB가 실제로 쿼리를 받을 준비가 되었는지 핑을 때려보는 설정
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "serving_user"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api-server:
+    build:
+      context: ../api-server   # 상대 경로로 api-server 폴더 지정
+      dockerfile: Dockerfile
+    container_name: investment-api
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      # 컨테이너 간 통신: DB 컨테이너 이름(serving-db)과 내부 포트(5432) 사용
+      - DATABASE_URL=postgresql://serving_user:serving_password@serving-db:5432/etf_service
+    depends_on:
+      # 🎯 추가 2: DB가 단순히 켜진게 아니라 '준비 완료(healthy)' 될 때까지 API 서버 대기
+      serving-db:
+        condition: service_healthy
+    # networks:                
+      # - default              # airflow compose 파일 하단에 정의된 기본 네트워크 이름 사용 (별도 설정이 있다면 맞추기)
+
 volumes:
   postgres-db-volume:
+  serving_db_data:

@@ -31,4 +31,5 @@ jobs:
       - name: Restart Airflow Scheduler
         run: |
           cd ~/data-pipeline-practice/airflow
-          docker compose restart airflow-scheduler
+          docker compose down
+          docker compose up -d
