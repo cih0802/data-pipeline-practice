@@ -19,6 +19,9 @@ dbt_packages/
 logs/
 dbt-env/
 
+# api-server
+api-venv/
+
 # AWS & OS
 .aws/
 .DS_Store
