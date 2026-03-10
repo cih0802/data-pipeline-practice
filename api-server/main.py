@@ -1,6 +1,6 @@
 import os
 from datetime import date
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Path
 from pydantic import BaseModel, Field
 from sqlalchemy import create_engine, text
 import pandas as pd
@@ -75,7 +75,8 @@ def get_all_metrics(
 
 @app.get("/metrics/{ticker}", response_model=list[ETFMetricResponse], tags=["Metrics"])
 def get_ticker_metrics(
-    ticker: str = Field(..., min_length=1, description="조회할 ETF 티커")
+    # 🎯 Field 대신 Path를 사용해야 합니다.
+    ticker: str = Path(..., min_length=1, description="조회할 ETF 티커")
 ):
     """특정 ETF 종목의 전체 기간 지표를 조회합니다."""
     try:

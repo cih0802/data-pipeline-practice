@@ -1,0 +1,41 @@
+name: API CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'api-server/**' # API 관련 코드가 변경될 때만 파이프라인 트리거
+
+jobs:
+  test-and-deploy:
+    runs-on: self-hosted # 구축해 둔 로컬 WSL 환경에서 실행
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 🧪 Run API Tests (CI)
+        run: |
+          cd api-server
+          
+          # 가상환경 활성화 및 의존성 설치
+          if [ ! -d "api-venv" ]; then
+            python3 -m venv api-venv
+          fi
+          source api-venv/bin/activate
+          
+          pip install --no-cache-dir -r requirements.txt
+          pip install pytest httpx
+          
+          # 테스트 실행 (에러 발생 시 파이프라인 즉시 중단)
+          pytest test_main.py -v
+
+      - name: 🚀 Deploy API Server to Docker (CD)
+        if: success() # 이전 테스트 단계가 완벽히 통과(Passed)했을 때만 실행
+        run: |
+          cd airflow
+          
+          # API 서버 컨테이너만 리빌드 및 무중단 재시작 적용
+          # serving-db나 airflow 컨테이너에는 영향을 주지 않음
+          docker compose up -d --build api-server

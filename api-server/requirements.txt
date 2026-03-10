@@ -1,5 +1,8 @@
 fastapi
 uvicorn
 sqlalchemy
-psycopg2-binary
 pandas
+psycopg2-binary
+pydantic
+pytest
+httpx
